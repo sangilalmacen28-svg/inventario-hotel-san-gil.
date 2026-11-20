@@ -6,6 +6,6 @@
   Datos: Supabase > Project Settings > API.
 */
 window.APP_CONFIG = {
-  SUPABASE_URL: ' https://sangilalmacen28-svg.github.io/inventario-hotel-san-gil./',
-  SUPABASE_ANON_KEY: 'TU_CLAVE_ANON_PUBLICA'
+  SUPABASE_URL: 'https://lhdznnwsklasklbaoxqc.supabase.co/rest/v1/',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxoZHpubndza2xhc2tsYmFveHFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUxNDEyMTgsImV4cCI6MjExMDcxNzIxOH0.fpa5nF-9zUrq6hLRuoksopQLNGIeiHEKCvWiXCeTYaM'
 };
