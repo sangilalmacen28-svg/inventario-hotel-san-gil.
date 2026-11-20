@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Política de contenido: solo se ejecuta código propio y las librerías con hash verificado -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Inventario · Hotel Misión San Gil</title>
+<link rel="icon" href="assets/logo.png">
+<link rel="stylesheet" href="css/style.css">
+<!-- Librerías con verificación de integridad (SRI): si el archivo cambia, el navegador lo bloquea -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/js.js" defer></script>
+</head>
+<body>
+
+<!-- INICIO DE SESIÓN -->
+<main id="login" class="login" hidden>
+  <section class="login-card">
+    <img src="assets/logo.png" alt="Hotel Misión San Gil · San Gil, Querétaro" class="logo-login">
+    <h1>Control de inventarios</h1>
+    <form id="lForm" autocomplete="on">
+      <label>Correo electrónico<input type="email" id="lEmail" name="username" autocomplete="username" required maxlength="120"></label>
+      <label>Contraseña<input type="password" id="lPass" name="password" autocomplete="current-password" required maxlength="128"></label>
+      <button class="btn wide" id="lBtn" type="submit">Iniciar sesión</button>
+    </form>
+    <p class="err" id="lErr" role="alert"></p>
+    <p class="note">Las cuentas las crea el administrador del sistema.</p>
+  </section>
+</main>
+
+<!-- APLICACIÓN -->
+<div id="app" hidden>
+<aside>
+  <div class="logo-box"><img src="assets/logo.png" alt="Hotel Misión San Gil"></div>
+  <nav id="nav">
+    <button data-v="dash" class="on">📊 Dashboard</button>
+    <button data-v="ent">📥 Entradas</button>
+    <button data-v="sal">📤 Salidas</button>
+    <button data-v="inv">📦 Inventarios</button>
+    <button data-v="prov">🏢 Proveedores</button>
+    <button data-v="rep">📑 Reportes</button>
+    <button data-v="cfg">⚙️ Configuración</button>
+  </nav>
+</aside>
+
+<main class="main">
+  <div class="top">
+    <div><b id="uname"></b> · <span id="hoy"></span></div>
+    <div class="acciones">
+      <span title="Productos con alerta de reposición">🔔 <span class="badge rojo" id="notif">0</span></span>
+      <button class="btn sec sm" id="tema">🌙 Modo oscuro</button>
+      <button class="btn sec sm" id="salir">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <section class="view on" id="v-dash">
+    <h2>Dashboard</h2>
+    <div class="grid k" id="kpis"></div>
+    <div class="grid two" style="margin-top:14px">
+      <div class="card"><b>Entradas y salidas por mes (unidades)</b><div class="chart"><canvas id="cMes"></canvas></div></div>
+      <div class="card"><b>Stock por categoría</b><div class="chart"><canvas id="cCat"></canvas></div></div>
+    </div>
+    <div class="grid two">
+      <div class="card"><b>Alertas de reposición</b><div id="alertas" class="lista"></div></div>
+      <div class="card"><b>Productos con mayor movimiento</b><div class="tw" id="top"></div></div>
+    </div>
+    <div class="card"><b>Movimientos recientes</b><div class="tw" id="recientes"></div></div>
+  </section>
+
+  <!-- ENTRADAS -->
+  <section class="view" id="v-ent">
+    <h2>Entradas (recepción de mercancía)</h2>
+    <div class="card op">
+      <div class="f">
+        <label>Folio<input id="eFolio" disabled></label>
+        <label>Fecha de recepción<input type="date" id="eFecha"></label>
+        <label>Proveedor<select id="eProv"></select></label>
+        <label>Factura / referencia<input id="eFac" maxlength="60"></label>
+        <label>Observaciones<input id="eObs" maxlength="300"></label>
+      </div>
+      <h3>Productos recibidos</h3>
+      <div id="lE"></div>
+      <div class="fila"><button class="btn sec sm" id="addE">+ Agregar producto</button>
+        <span class="note">Total de unidades: <b id="totE">0</b></span></div>
+      <p class="derecha"><button class="btn" id="saveE">Guardar entrada</button></p>
+    </div>
+    <div class="card"><b>Historial de entradas</b><div class="tw" id="hE"></div></div>
+  </section>
+
+  <!-- SALIDAS -->
+  <section class="view" id="v-sal">
+    <h2>Salidas (entregas a áreas)</h2>
+    <div class="card op">
+      <div class="f">
+        <label>Folio<input id="sFolio" disabled></label>
+        <label>Fecha<input type="date" id="sFecha"></label>
+        <label>Área solicitante<select id="sArea"></select></label>
+        <label>Número de requisición<input id="sReq" maxlength="30"></label>
+        <label>Persona que recibe<input id="sRec" maxlength="80"></label>
+        <label>Observaciones<input id="sObs" maxlength="300"></label>
+      </div>
+      <h3>Artículos</h3>
+      <div id="lS"></div>
+      <div class="fila"><button class="btn sec sm" id="addS">+ Agregar artículo</button>
+        <span class="note">El servidor no permite entregar más de lo disponible.</span></div>
+      <p class="derecha"><button class="btn" id="saveS">Registrar salida</button></p>
+    </div>
+    <div class="card"><b>Historial de salidas</b><div class="tw" id="hS"></div></div>
+  </section>
+
+  <!-- INVENTARIOS -->
+  <section class="view" id="v-inv">
+    <h2>Inventarios</h2>
+    <details class="card op">
+      <summary><b>➕ Registrar nuevo producto</b></summary>
+      <div class="f" style="margin-top:10px">
+        <label>Código<input id="pCod" maxlength="20" placeholder="Ej. ALM-010"></label>
+        <label>Descripción<input id="pDesc" maxlength="120"></label>
+        <label>Categoría / área<select id="pCat"></select></label>
+        <label>Unidad de medida<input id="pUni" maxlength="30" placeholder="Pieza, caja, litro…"></label>
+        <label>Stock inicial<input type="number" min="0" id="pIni" value="0"></label>
+        <label>Punto de reorden<input type="number" min="0" id="pReo" value="0"></label>
+        <label>Proveedor principal<select id="pProv"></select></label>
+        <label>Observaciones<input id="pObs" maxlength="300"></label>
+      </div>
+      <p class="derecha"><button class="btn" id="saveP">Guardar producto</button></p>
+    </details>
+    <div class="card">
+      <div class="f" style="grid-template-columns:2fr 1fr 1fr 1fr">
+        <input id="fBuscar" placeholder="🔍 Buscar por código o descripción" maxlength="60">
+        <select id="fCat"></select>
+        <select id="fProv"></select>
+        <select id="fOrd">
+          <option value="cod">Ordenar: código</option>
+          <option value="desc">Ordenar: descripción</option>
+          <option value="stock">Ordenar: stock actual</option>
+        </select>
+      </div>
+      <div class="tw" style="margin-top:12px">
+        <table>
+          <thead><tr><th>Código</th><th>Descripción</th><th>Categoría</th><th>Unidad</th><th>Inicial</th><th>Entradas</th><th>Salidas</th><th>Stock actual</th><th>Reorden</th><th>Proveedor</th><th></th></tr></thead>
+          <tbody id="tInv"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" id="hist" hidden></div>
+  </section>
+
+  <!-- PROVEEDORES -->
+  <section class="view" id="v-prov">
+    <h2>Proveedores</h2>
+    <details class="card op">
+      <summary><b>➕ Registrar proveedor</b></summary>
+      <div class="f" style="margin-top:10px">
+        <label>Nombre comercial<input id="vNom" maxlength="120"></label>
+        <label>Contacto<input id="vCon" maxlength="80"></label>
+        <label>Teléfono<input id="vTel" maxlength="30"></label>
+        <label>Correo electrónico<input type="email" id="vMail" maxlength="120"></label>
+        <label>Dirección<input id="vDir" maxlength="200"></label>
+        <label>Categoría que suministra<input id="vCat" maxlength="60"></label>
+        <label>Estado<select id="vEst"><option>Activo</option><option>Inactivo</option></select></label>
+        <label>Observaciones<input id="vObs" maxlength="300"></label>
+      </div>
+      <p class="derecha"><button class="btn" id="saveV">Guardar proveedor</button></p>
+    </details>
+    <div class="card" style="max-width:340px"><label>Filtrar por categoría<select id="fSCat"></select></label></div>
+    <div id="lProv"></div>
+    <div class="card"><b>Productos sin proveedor asignado</b><div id="sinProv" class="note" style="margin-top:8px"></div></div>
+  </section>
+
+  <!-- REPORTES -->
+  <section class="view" id="v-rep">
+    <h2>Reportes y exportaciones</h2>
+    <div class="card">
+      <div class="f">
+        <label>Desde<input type="date" id="rDe"></label>
+        <label>Hasta<input type="date" id="rHa"></label>
+        <label>Área (salidas)<select id="rArea"></select></label>
+        <label>Proveedor (entradas y compras)<select id="rProv"></select></label>
+      </div>
+      <p class="note">Los filtros se aplican a los reportes que correspondan. Los archivos se descargan como Excel (.xlsx).</p>
+    </div>
+    <div class="grid cards-rep" id="btnsRep"></div>
+  </section>
+
+  <!-- CONFIGURACIÓN -->
+  <section class="view" id="v-cfg">
+    <h2>Configuración</h2>
+    <div class="grid two">
+      <div class="card">
+        <b>Áreas del hotel</b>
+        <div class="f adm" style="margin:10px 0"><input id="nArea" maxlength="60" placeholder="Nueva área"><button class="btn sm" id="addArea">Agregar</button></div>
+        <div id="lAreas"></div>
+      </div>
+      <div class="card">
+        <b>Usuarios y roles</b>
+        <div id="usuarios" style="margin-top:8px"></div>
+        <p class="note">Para crear cuentas o restablecer contraseñas, usa el panel de Supabase (Authentication &gt; Users).</p>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+
+<datalist id="dlProd"></datalist>
+<div id="toast" class="toast" role="status" hidden></div>
+<div id="print"></div>
+</body>
+</html>
